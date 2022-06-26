@@ -1,0 +1,158 @@
+﻿@page "/todo"
+@inject ITaskService _taskService
+@inject SweetAlertService Swal;
+@inject IJSRuntime js
+
+
+
+
+<h3 id="deneme"> Todo</h3>
+
+<!--Edit Form-->
+<div class="col-11 mx-auto">
+    <EditForm Model="task" class="form-inline" OnValidSubmit="AddTask">
+        <input type="text" class="form-control mx-1" @bind-value="task.TaskName" />
+        <button class="btn btn-outline-primary mx-2 my-2">Add Task</button>
+
+    </EditForm>
+
+    <div class="progress-bar my-2 " role="progressbar" style="width:@(PercentageCompleted)%" aria-valuemax="100" aria-valuemin="0">
+        @(PercentageCompleted)%
+    </div>
+
+    <table class="table table-sm my-4 py-3">
+        
+            <thead >
+                <tr>
+                    <th class="col-2" scope="col">#</th>
+                    <th class="col-8" scope="col">Task</th>
+                    <th class="col-2" scope="col"></th>
+                </tr>
+            </thead>
+        
+
+        <tbody>
+            @foreach (var task in taskList)
+            {
+                if (task.Iscomplete)
+                {
+                    <!--Task Completed-->
+                    <tr class="table-success">
+                        <th class="col-2" scope="row" @onclick="(e=> ChangeStatus(task))"><del>@FindIndexRow(task)</del></th>
+                        <td class="col-8" @onclick="(e=> ChangeStatus(task))"><del>@task.TaskName</del></td>
+                        <td class="col-2"> <button @onclick="(e=> DeleteTask(task))" class="btn btn-danger mx-2">Delete</button> </td>
+                    </tr>
+                }
+                else
+                {
+                    <!--Task Not Completed-->
+                    <tr id="@task.Id">
+                        <th class="col-2" scope="row" @onclick="(e=> ChangeStatus(task))">@FindIndexRow(task)</th>
+                        <td class="col-8" @onclick="(e=> ChangeStatus(task))">@task.TaskName</td>
+                        <td class="col-2"> <button @onclick="(e=> DeleteTask(task))" class="btn btn-outline-danger mx-2">Delete</button> </td>
+                    </tr>
+                }
+
+            }
+        </tbody>
+    </table>
+
+</div>
+
+
+@code {
+
+    protected List<TaskModel> taskList = new List<TaskModel>();
+    protected TaskModel task = new TaskModel();
+    protected string taskId = "";
+
+    protected override Task OnInitializedAsync()
+    {
+        taskList = _taskService.GetTaskList();
+        return base.OnInitializedAsync();
+    }
+
+
+    private void AddTask()
+    {
+        int resp = _taskService.AddTask(task);
+        if (resp > 0)
+        {
+
+            taskList.Add(task);
+            taskId = task.Id.ToString();
+            SendToast("Task Added.", SweetAlertIcon.Success);
+
+        }
+
+        task = new TaskModel();
+    }
+    private void ChangeStatus(TaskModel task)
+    {
+        task.Iscomplete = !task.Iscomplete;
+
+        _taskService.ChangeStatus(task.Id);
+    }
+    private void DeleteTask(TaskModel task)
+    {
+        int resp = _taskService.RemoveTask(task.Id);
+
+        if (resp > 0)
+        {
+            SendToast("Task Removed.", SweetAlertIcon.Success, "colored-toast-er");
+            taskList.Remove(task);
+        }
+    }
+
+
+    #region UIFunctions
+    public int PercentageCompleted
+    {
+
+        get
+        {
+            return taskList.Count > 0 ? (taskList.Count(x => x.Iscomplete) * 100 / taskList.Count()) : 0;
+        }
+
+    }
+
+    public int FindIndexRow(TaskModel task)
+    {
+        var IndexNumber = taskList.IndexOf(task);
+        return ++IndexNumber;
+    }
+
+    private void SendToast(string message, SweetAlertIcon icon, string customclass = "")
+    {
+        SweetAlertOptions sweetAlertopts = new SweetAlertOptions
+            {
+                Toast = true,
+                Position = "top-end",
+                ShowConfirmButton = false,
+                Timer = 1500,
+                Icon = icon,
+                CustomClass = customclass == "" ? new SweetAlertCustomClass(popup: "colored-toast") : new SweetAlertCustomClass(popup: customclass),
+                IconColor = "white",
+                Title = message,
+
+            };
+        Swal.FireAsync(sweetAlertopts);
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+
+        if (!firstRender)
+        {
+            await js.InvokeVoidAsync("AddAnimationClass", taskId);  // for adding animation only adding task
+            taskId = "";
+        }
+
+    }
+
+
+    #endregion
+
+}
+
